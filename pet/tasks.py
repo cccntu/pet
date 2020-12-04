@@ -120,6 +120,50 @@ class DataProcessor(ABC):
         pass
 
 
+
+from datasets import load_dataset
+class MnliProcessorHF(DataProcessor):
+    """Processor for the MultiNLI data set (GLUE version)."""
+    def __init__(self):
+        self.dataset = load_dataset(
+                   'glue', 'mnli')
+
+    def get_train_examples(self, data_dir=None):
+        return self._create_examples(self.dataset['train'], 'train')
+
+
+    def get_dev_examples(self, data_dir):
+        return self._create_examples(self.dataset['validation_matched'],
+                'validation_matched')
+
+    def get_test_examples(self, data_dir) -> List[InputExample]:
+        raise NotImplementedError()
+
+    def get_unlabeled_examples(self, data_dir) -> List[InputExample]:
+        return self.get_train_examples(data_dir)
+
+    def get_labels(self):
+        return ["contradiction", "entailment", "neutral"]
+
+    def _create_examples(self, lines: List[List[str]], set_type: str) -> List[InputExample]:
+        examples = []
+
+        id_to_lables = self.get_labels()
+        for (i, line) in enumerate(lines):
+            if i == 0:
+                continue
+            guid = f"{set_type}-{line['idx']}"
+            text_a = line['premise']
+            text_b = line['hypothesis']
+            label = id_to_lables[line['label']] # need to return string, hf datasets uses int
+
+            example = InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label)
+            examples.append(example)
+
+        return examples
+
+
+
 class MnliProcessor(DataProcessor):
     """Processor for the MultiNLI data set (GLUE version)."""
 
@@ -145,7 +189,7 @@ class MnliProcessor(DataProcessor):
         for (i, line) in enumerate(lines):
             if i == 0:
                 continue
-            guid = "%s-%s" % (set_type, line[0])
+            guid = f"{set_type}-{line[0]}"
             text_a = line[8]
             text_b = line[9]
             label = line[-1]
@@ -163,6 +207,7 @@ class MnliProcessor(DataProcessor):
             for line in reader:
                 lines.append(line)
             return lines
+
 
 
 class MnliMismatchedProcessor(MnliProcessor):
@@ -763,7 +808,8 @@ class RecordProcessor(DataProcessor):
 
 
 PROCESSORS = {
-    "mnli": MnliProcessor,
+        #"mnli": MnliProcessor,
+    "mnli": MnliProcessorHF,
     "mnli-mm": MnliMismatchedProcessor,
     "agnews": AgnewsProcessor,
     "yahoo": YahooAnswersProcessor,
